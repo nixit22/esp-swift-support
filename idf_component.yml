@@ -1,0 +1,5 @@
+name: esp-swift-support
+version: "0.1.0"
+url: "https://github.com/nixit22/esp-swift-support"
+dependencies:
+  idf: ">=5.5"
