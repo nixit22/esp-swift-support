@@ -99,8 +99,11 @@ endfunction()
 #                a file named "module.modulemap" in the component directory is
 #                used automatically if it exists.
 macro(swift_configure)
-    # Parse named arguments: MODULE_NAME and MODULE_MAP.
-    cmake_parse_arguments(SWIFT "" "MODULE_NAME;MODULE_MAP" "" ${ARGN})
+    # Parse named arguments: MODULE_NAME and MODULE_MAP. Prefix is "ARG", not
+    # "SWIFT" — cmake_parse_arguments() would produce SWIFT_MODULE_NAME, which
+    # reads as an easy typo of CMake's own Swift_MODULE_NAME target property
+    # set below; keeping the two visually distinct avoids that mix-up.
+    cmake_parse_arguments(ARG "" "MODULE_NAME;MODULE_MAP" "" ${ARGN})
 
     # Resolve the RISC-V architecture flags for the active IDF target.
     extract_riscv_flags(arch_flags)
@@ -110,9 +113,22 @@ macro(swift_configure)
     set_target_properties(${COMPONENT_LIB} PROPERTIES COMPILE_OPTIONS "")
 
     # Default the module name to the component name when not explicitly set.
-    if(NOT SWIFT_MODULE_NAME)
-        set(SWIFT_MODULE_NAME "${COMPONENT_NAME}") 
+    if(NOT ARG_MODULE_NAME)
+        set(ARG_MODULE_NAME "${COMPONENT_NAME}")
     endif()
+
+    # Drive CMake's own Ninja/Swift language support with the desired module
+    # name, rather than passing -module-name/-emit-module-path manually below:
+    # CMake auto-generates its own copies of those two flags (derived from the
+    # CMake target name, e.g. __idf_esp_swift_platform) and appends them after
+    # target_compile_options on the final command line, so a manually-passed
+    # -emit-module-path here would silently lose to CMake's — swiftc uses the
+    # last occurrence of a single-valued flag — and the .swiftmodule would be
+    # written under the wrong filename, breaking `import ${ARG_MODULE_NAME}`
+    # for every downstream consumer.
+    set_target_properties(${COMPONENT_LIB} PROPERTIES
+        Swift_MODULE_NAME ${ARG_MODULE_NAME}
+    )
 
     target_compile_options(${COMPONENT_LIB} PRIVATE "$<$<COMPILE_LANGUAGE:Swift>:SHELL:
         -target riscv32-none-none-eabi
@@ -127,15 +143,12 @@ macro(swift_configure)
         -Xcc -fmodules-cache-path=${CMAKE_BINARY_DIR}/clang-module-cache
         -pch-output-dir ${CMAKE_CURRENT_BINARY_DIR}/pch
         -Xfrontend -enable-single-module-llvm-emission
-        -module-name ${SWIFT_MODULE_NAME}
-        -emit-module
-        -emit-module-path ${CMAKE_CURRENT_BINARY_DIR}/${SWIFT_MODULE_NAME}.swiftmodule
     >")
 
     # Resolve the module map path: explicit argument takes priority, then the
     # conventional module.modulemap in the component directory.
-    if(SWIFT_MODULE_MAP)
-        set(_module_map_path "${CMAKE_CURRENT_LIST_DIR}/${SWIFT_MODULE_MAP}")
+    if(ARG_MODULE_MAP)
+        set(_module_map_path "${CMAKE_CURRENT_LIST_DIR}/${ARG_MODULE_MAP}")
     else()
         set(_default_map "${CMAKE_CURRENT_LIST_DIR}/module.modulemap")
         if(EXISTS "${_default_map}")
