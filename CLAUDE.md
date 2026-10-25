@@ -61,5 +61,5 @@ every package folder whose `CMakeLists.txt` calls `idf_component_register()` to
 
 ## Adding a new package
 
-C target + Swift target as described in the README, URL dependencies on the `SPM` branch (or a tag),
+C target + Swift target as described in the README, URL dependencies `from: "0.1.0"`,
 and an app (the package's `test-app/`) that depends on it with `.package(path: "..")`.

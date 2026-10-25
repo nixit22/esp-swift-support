@@ -25,8 +25,8 @@ let package = Package(
     name: "App",
     products: [.library(name: "App", type: .static, targets: ["App"])],
     dependencies: [
-        .package(url: "https://github.com/nixit22/esp-swift-support.git", branch: "SPM"),
-        .package(url: "https://github.com/nixit22/esp-swift-gpio.git", branch: "SPM"),
+        .package(url: "https://github.com/nixit22/esp-swift-support.git", from: "0.1.0"),
+        .package(url: "https://github.com/nixit22/esp-swift-gpio.git", from: "0.1.0"),
     ],
     targets: [
         .target(name: "App", dependencies: [.product(name: "GPIO", package: "esp-swift-gpio")]),
