@@ -3,7 +3,7 @@
 Builds Swift packages for ESP-IDF with [SwiftPM](https://www.swift.org/package-manager/) and
 [Embedded Swift](https://github.com/apple/swift-embedded-examples), and holds the `SWIFT_NAME()`
 header that the C glue of the other esp-swift packages includes. Every other esp-swift package
-depends on it. Requires ESP-IDF **5.5+**, CMake 3.19+ and an Embedded Swift toolchain.
+depends on it. Requires ESP-IDF **6.0+**, CMake 3.19+ and an Embedded Swift toolchain.
 
 It is two things in one folder:
 
