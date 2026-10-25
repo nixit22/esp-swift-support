@@ -12,6 +12,7 @@ Builds Swift packages for ESP-IDF with SwiftPM (Embedded Swift, RISC-V) and expo
 | `Sources/SwiftSupport/swift_support.c` | Empty: a C target needs a source file |
 | `CMakeLists.txt` | `idf_component_register()` with nothing: the IDF side exists for `project_include.cmake` |
 | `project_include.cmake` | Defines `swift_package()` (runs before any component's `CMakeLists.txt`) |
+| `cmake/swiftpm_components.cmake` | Bootstrap include for the app's top-level `CMakeLists.txt` (fills `EXTRA_COMPONENT_DIRS`) |
 | `cmake/swift_build.py` | Writes the SwiftPM toolset file and runs `swift build` |
 
 ## Key behaviours
@@ -48,8 +49,11 @@ never called by the build), else the `swift` in `PATH`.
 **Bootstrap** (in the app's top-level `CMakeLists.txt`, see the README): this component lives in a
 SwiftPM checkout, so SwiftPM must resolve before ESP-IDF scans components. The app runs `swift
 package resolve` and `show-dependencies --format json` with `--scratch-path <build>/swiftpm` (the
-folder `swift_build.py` builds in), and adds every package folder whose `CMakeLists.txt` calls
-`idf_component_register()` to `EXTRA_COMPONENT_DIRS`. `resolve` keeps pinned revisions: use
+folder `swift_build.py` builds in). Only the `resolve` (with `*-elf` removed from `PATH`) is in the app;
+the rest is `cmake/swiftpm_components.cmake`, which the app includes from the checkout `resolve`
+made (`<build>/swiftpm/checkouts/esp-swift-support/cmake/`; its header has the snippet): it adds
+every package folder whose `CMakeLists.txt` calls `idf_component_register()` to
+`EXTRA_COMPONENT_DIRS`. `resolve` keeps pinned revisions: use
 `swift package update` to follow a branch.
 
 **C and C++ targets** get their module map from SwiftPM: the umbrella header must be
