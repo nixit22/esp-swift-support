@@ -140,7 +140,7 @@ def main():
     p.add_argument("--implicit-cxx", default="", help="'|' separated C++ compiler include folders")
     a = p.parse_args()
 
-    scratch = os.path.join(a.build_folder, "swiftpm")
+    scratch = os.path.join(a.build_folder, "swift-build")
     os.makedirs(scratch, exist_ok=True)
     implicit = [x for x in a.implicit.split("|") if x]
     implicit_cxx = [x for x in a.implicit_cxx.split("|") if x]

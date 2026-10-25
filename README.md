@@ -48,9 +48,9 @@ cmake_minimum_required(VERSION 3.19)
 # components inside SwiftPM checkouts. Any `swift` can resolve (run in this folder,
 # so that swiftly's `swift` uses its .swift-version); swift_package() picks the
 # Embedded Swift toolchain later.
-# SwiftPM works in <build>/swiftpm, the folder swift_package() builds in.
+# SwiftPM works in <build>/swift-build, the folder swift_package() builds in.
 find_program(SWIFT_PROGRAM swift REQUIRED)
-set(SWIFTPM_SCRATCH "${CMAKE_BINARY_DIR}/swiftpm")
+set(SWIFTPM_SCRATCH "${CMAKE_BINARY_DIR}/swift-build")
 # ESP-IDF's PATH has its GCC/binutils toolchains (riscv32-esp-elf, esp32ulp-elf...,
 # with a plain `ld`), which SwiftPM would use to link the package manifest for the
 # host: take them out of PATH for SwiftPM.
@@ -135,7 +135,7 @@ On every build, `cmake/swift_build.py`:
    (and `LOG_<LEVEL>_ENABLED`, from `CONFIG_LOG_MAXIMUM_LEVEL`), the C and C++ flags, and an ELF
    archiver;
 3. runs `swift build --triple riscv32-none-none-eabi --build-system native` in
-   `<build>/swiftpm`;
+   `<build>/swift-build`;
 4. copies the library, which CMake links with `--whole-archive` into the firmware.
 
 See [`CLAUDE.md`](CLAUDE.md) for details.

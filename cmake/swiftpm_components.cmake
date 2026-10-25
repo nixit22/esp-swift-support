@@ -5,7 +5,7 @@
 # ESP-IDF's project.cmake:
 #
 #   find_program(SWIFT_PROGRAM swift REQUIRED)
-#   set(SWIFTPM_SCRATCH "${CMAKE_BINARY_DIR}/swiftpm")
+#   set(SWIFTPM_SCRATCH "${CMAKE_BINARY_DIR}/swift-build")
 #   string(REPLACE ":" ";" SWIFTPM_PATH "$ENV{PATH}")
 #   list(FILTER SWIFTPM_PATH EXCLUDE REGEX "-elf")
 #   list(JOIN SWIFTPM_PATH ":" SWIFTPM_PATH)

@@ -48,10 +48,10 @@ never called by the build), else the `swift` in `PATH`.
 
 **Bootstrap** (in the app's top-level `CMakeLists.txt`, see the README): this component lives in a
 SwiftPM checkout, so SwiftPM must resolve before ESP-IDF scans components. The app runs `swift
-package resolve` and `show-dependencies --format json` with `--scratch-path <build>/swiftpm` (the
+package resolve` and `show-dependencies --format json` with `--scratch-path <build>/swift-build` (the
 folder `swift_build.py` builds in). Only the `resolve` (with `*-elf` removed from `PATH`) is in the app;
 the rest is `cmake/swiftpm_components.cmake`, which the app includes from the checkout `resolve`
-made (`<build>/swiftpm/checkouts/esp-swift-support/cmake/`; its header has the snippet): it adds
+made (`<build>/swift-build/checkouts/esp-swift-support/cmake/`; its header has the snippet): it adds
 every package folder whose `CMakeLists.txt` calls `idf_component_register()` to
 `EXTRA_COMPONENT_DIRS`. `resolve` keeps pinned revisions: use
 `swift package update` to follow a branch.
