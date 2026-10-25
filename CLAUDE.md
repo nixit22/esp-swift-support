@@ -1,42 +1,61 @@
 # SwiftSupport
 
-Header-only ESP-IDF component that wires the Embedded Swift toolchain into the ESP-IDF CMake build system. Contains no Swift source files.
+Builds Swift packages for ESP-IDF with SwiftPM (Embedded Swift, RISC-V) and exports the
+`SWIFT_NAME()` macro. Swift module name of the SwiftPM target: **`SwiftSupport`** (C only).
 
 ## Files
 
 | File | Role |
 |---|---|
-| `project_include.cmake` | Runs at **project scope** — enables Swift, defers linker and definition fixups |
-| `CMakeLists.txt` | Defines `swift_configure()` and `extract_riscv_flags()` |
-| `include/swift_support.h` | Exports the `SWIFT_NAME()` attribute macro |
+| `Package.swift` | SwiftPM package: the C target `SwiftSupport` |
+| `Sources/SwiftSupport/include/swift_support.h` | Exports the `SWIFT_NAME()` attribute macro |
+| `Sources/SwiftSupport/swift_support.c` | Empty: a C target needs a source file |
+| `CMakeLists.txt` | `idf_component_register()` with nothing: the IDF side exists for `project_include.cmake` |
+| `project_include.cmake` | Defines `swift_package()` (runs before any component's `CMakeLists.txt`) |
+| `cmake/swift_build.py` | Writes the SwiftPM toolset file and runs `swift build` |
 
 ## Key behaviours
 
-**`project_include.cmake` runs before any component `CMakeLists.txt`** — this is why it can call `enable_language(Swift)` and install the `target_compile_definitions()` override that intercepts definitions from all ESP-IDF components.
+**`swift_package(PACKAGE_DIR PRODUCT [SWIFT_BIN] [FLAGS_SOURCE])`** is called by an app's `main`
+component (no `REQUIRES`, with an empty `swift_flags.c`). It adds the custom target
+`swift_package_<PRODUCT>`, which runs `swift_build.py`, strips `.swift_modhash` with `objcopy`, and
+makes the component depend on and `--whole-archive`-link `lib<PRODUCT>.a`. ESP-IDF no longer
+compiles any Swift: `enable_language(Swift)`, `swift_configure()`, the CXX-linker and
+`target_compile_definitions` workarounds of the previous versions are gone.
 
-**`target_compile_definitions()` override** wraps every `MACRO=VALUE` item in `$<$<COMPILE_LANGUAGE:C,CXX,ASM>:...>` so the Embedded Swift driver never sees it. The definition is dropped for Swift entirely (not replaced with bare `-DMACRO`) to avoid silent semantic changes. A deferred `swift_fixup_build_definitions()` applies the same fix to definitions set directly on `__idf_build_target`.
+**`swift_build.py`** is a port of espswift's `internal build-package`:
+- the C flags come from the `swift_flags.c` entry of `compile_commands.json` (response files
+  expanded, `_xesp*` removed from `-march`); the C++ flags are those plus `-fno-exceptions
+  -fno-rtti` and the C++ compiler's own include folders; `-fno-blocks` is added because newlib's
+  `unistd.h` has a parameter named `__block`;
+- the Swift options are `-enable-experimental-feature Embedded -wmo -Osize -g -Xfrontend
+  -function-sections -Xfrontend -enable-single-module-llvm-emission` (the last one so that `@used`/`@section` globals compile), plus `-D CONFIG_<name>` for every enabled `sdkconfig.json` option and
+  `-D LOG_<LEVEL>_ENABLED` computed from the integer `CONFIG_LOG_MAXIMUM_LEVEL` (`Logger` in
+  esp-swift-platform uses `#if LOG_INFO_ENABLED`);
+- clang gets GCC's integer types (`-U`/`-D` of `__UINT32_TYPE__`, `__INT32_TYPE__`, ... taken from
+  `<gcc> -dM -E`): GCC's `uint32_t` is `long unsigned int` and clang's `unsigned int`, so the C++ glue's symbols
+  would mangle differently from those of GCC-built libraries (esp_matter) and fail to link;
+- `PATH` is stripped of the `*-elf` entries (ESP-IDF's GCC/binutils, with a plain `ld`) while
+  SwiftPM runs: it links the package manifest for the host with the first `ld` it finds;
+- `--build-system native` because Swift Build (default since Swift 6.4) links C targets with
+  Apple's linker, which cannot link ESP32 code.
 
-**CXX linker** — `force_cxx_linker()` is deferred via `cmake_language(DEFER ...)` so it runs after all component targets exist and can resolve the ELF target name.
+**Toolchain selection** (`swift_package()`): `SWIFT_BIN`, `$ESP_SWIFT_BIN`, swiftly
+(`swiftly run sh -c "command -v swift" +<version from .swift-version>` in the package folder: the
+explicit selector keeps the result independent of the working directory; swiftly's `swift` proxy is
+never called by the build), else the `swift` in `PATH`.
 
-**`swift_configure()` macro** (called by each Swift component after `idf_component_register()`):
-- Clears all inherited C/C++ compile options (Swift driver rejects them).
-- Reads `-march`/`-mabi` from `IDF_TOOLCHAIN_BUILD_DIR/cflags` (ESP-IDF 6.0+), stripping `_xesp*` extensions.
-- Falls back to `-mabi=ilp32` when the response file omits it.
-- Auto-discovers `module.modulemap` at the component root unless `MODULE_MAP` is specified.
-- `MODULE_NAME` defaults to `${COMPONENT_NAME}` when omitted.
-- Strips the `.swift_modhash` ELF section via a `POST_BUILD` `objcopy` command (bare-metal linker warning).
+**Bootstrap** (in the app's top-level `CMakeLists.txt`, see the README): this component lives in a
+SwiftPM checkout, so SwiftPM must resolve before ESP-IDF scans components. The app runs `swift
+package resolve` and `show-dependencies --format json` with `--scratch-path <build>/swiftpm` (the
+folder `swift_build.py` builds in), and adds every package folder whose `CMakeLists.txt` calls
+`idf_component_register()` to `EXTRA_COMPONENT_DIRS`. `resolve` keeps pinned revisions: use
+`swift package update` to follow a branch.
 
-## Adding a new Swift component
+**C and C++ targets** get their module map from SwiftPM: the umbrella header must be
+`include/<TargetName>.h`. Avoid target names that are an ESP-IDF header name ignoring case.
 
-```cmake
-idf_component_register(
-    SRCS "MyFile.swift" "helper.c"
-    PRIV_INCLUDE_DIRS "."
-    REQUIRES SwiftPlatform          # REQUIRES (not PRIV_REQUIRES) when callers import Swift module
-    PRIV_REQUIRES SwiftSupport
-)
+## Adding a new package
 
-swift_configure(MODULE_NAME MyModule)
-```
-
-Place a `module.modulemap` at the component root to expose C headers — it is picked up automatically.
+C target + Swift target as described in the README, URL dependencies on the `SPM` branch (or a tag),
+and an app (the package's `test-app/`) that depends on it with `.package(path: "..")`.
