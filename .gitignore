@@ -8,3 +8,4 @@ test-app/.vscode/settings.json
 .claude/settings.local.json
 .build/
 test-app/Package.resolved
+test-app/.sourcekit-lsp/

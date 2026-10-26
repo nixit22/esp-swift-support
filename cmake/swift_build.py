@@ -126,6 +126,33 @@ def swift_conditions(build):
     return conditions
 
 
+def write_sourcekit_config(package, toolset):
+    """<package>/.sourcekit-lsp/config.json: the build's flags for SourceKit-LSP (VS Code, ...).
+
+    It builds the package itself for the host, so without the triple, the Embedded Swift feature
+    and the C flags it fails ("Loading the standard library failed"). SourceKit-LSP has no setting
+    that reads a toolset file, hence a copy of its options. Not rewritten when unchanged: the
+    Swift extension offers to restart the server on every write.
+    """
+    config = {"swiftPM": {
+        "buildSystem": "native",
+        "triple": TRIPLE,
+        "swiftCompilerFlags": toolset["swiftCompiler"]["extraCLIOptions"],
+        "cCompilerFlags": toolset["cCompiler"]["extraCLIOptions"],
+        "cxxCompilerFlags": toolset["cxxCompiler"]["extraCLIOptions"],
+    }}
+    text = json.dumps(config, indent=1)
+    path = os.path.join(package, ".sourcekit-lsp", "config.json")
+    try:
+        with open(path) as f:
+            if f.read() == text:
+                return
+    except FileNotFoundError:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(text)
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--build-folder", required=True)
@@ -164,6 +191,7 @@ def main():
     toolset_path = os.path.join(scratch, "toolset.json")
     with open(toolset_path, "w") as f:
         json.dump(toolset, f, indent=2, sort_keys=True)
+    write_sourcekit_config(a.package, toolset)
 
     command = [
         f"{a.swift_bin}/swift", "build",

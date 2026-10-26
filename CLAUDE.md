@@ -38,6 +38,11 @@ compiles any Swift: `enable_language(Swift)`, `swift_configure()`, the CXX-linke
   would mangle differently from those of GCC-built libraries (esp_matter) and fail to link;
 - `PATH` is stripped of the `*-elf` entries (ESP-IDF's GCC/binutils, with a plain `ld`) while
   SwiftPM runs: it links the package manifest for the host with the first `ld` it finds;
+- `<package>/.sourcekit-lsp/config.json` is written from the same toolset (triple, Embedded feature,
+  `-D CONFIG_*`, C/C++ flags, native build system): SourceKit-LSP builds the package for the host
+  itself and has no setting that reads a toolset file. Only rewritten when its content changes (the
+  VS Code Swift extension offers to restart the server on every write). The app should gitignore
+  `.sourcekit-lsp/`; it exists after the first build;
 - `--build-system native` because Swift Build (default since Swift 6.4) links C targets with
   Apple's linker, which cannot link ESP32 code.
 
