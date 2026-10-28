@@ -126,16 +126,18 @@ def swift_conditions(build):
     return conditions
 
 
-def write_sourcekit_config(package, toolset):
+def write_sourcekit_config(package, toolset, scratch):
     """<package>/.sourcekit-lsp/config.json: the build's flags for SourceKit-LSP (VS Code, ...).
 
     It builds the package itself for the host, so without the triple, the Embedded Swift feature
     and the C flags it fails ("Loading the standard library failed"). SourceKit-LSP has no setting
-    that reads a toolset file, hence a copy of its options. Not rewritten when unchanged: the
-    Swift extension offers to restart the server on every write.
+    that reads a toolset file, hence a copy of its options. `scratchPath` keeps its index build out
+    of `<package>/.build`. Not rewritten when unchanged: the Swift extension offers to restart the
+    server on every write.
     """
     config = {"swiftPM": {
         "buildSystem": "native",
+        "scratchPath": os.path.abspath(scratch),
         "triple": TRIPLE,
         "swiftCompilerFlags": toolset["swiftCompiler"]["extraCLIOptions"],
         "cCompilerFlags": toolset["cCompiler"]["extraCLIOptions"],
@@ -191,7 +193,12 @@ def main():
     toolset_path = os.path.join(scratch, "toolset.json")
     with open(toolset_path, "w") as f:
         json.dump(toolset, f, indent=2, sort_keys=True)
-    write_sourcekit_config(a.package, toolset)
+    write_sourcekit_config(a.package, toolset, scratch)
+    # A component's test app depends on the component one folder up (`.package(path: "..")`):
+    # SourceKit-LSP indexes that package too, with the same flags.
+    parent = os.path.dirname(os.path.abspath(a.package))
+    if os.path.isfile(os.path.join(parent, "Package.swift")):
+        write_sourcekit_config(parent, toolset, scratch)
 
     command = [
         f"{a.swift_bin}/swift", "build",
